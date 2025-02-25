@@ -1,0 +1,139 @@
+---
+# Source: retail-store-sample-assets-chart/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: retail-store-assets
+  labels:
+    helm.sh/chart: assets-0.8.4
+    app.kubernetes.io/name: assets
+    app.kubernetes.io/instance: retail-store-assets
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: retail-store-sample-assets-chart/templates/configmap.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retail-store-assets
+data:
+  PORT: '8080'
+---
+# Source: retail-store-sample-assets-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: retail-store-assets
+  labels:
+    helm.sh/chart: assets-0.8.4
+    app.kubernetes.io/name: assets
+    app.kubernetes.io/instance: retail-store-assets
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: assets
+    app.kubernetes.io/instance: retail-store-assets
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+---
+# Source: retail-store-sample-assets-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retail-store-assets
+  labels:
+    helm.sh/chart: assets-0.8.4
+    app.kubernetes.io/name: assets
+    app.kubernetes.io/instance: retail-store-assets
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: assets
+      app.kubernetes.io/instance: retail-store-assets
+      app.kubernetes.io/component: service
+      app.kuberneres.io/owner: retail-store-sample
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: assets
+        app.kubernetes.io/instance: retail-store-assets
+        app.kubernetes.io/component: service
+        app.kuberneres.io/owner: retail-store-sample
+    spec:
+      serviceAccountName: retail-store-assets
+      securityContext:
+        {}
+      containers:
+        - name: assets
+          envFrom:
+            - configMapRef:
+                name: retail-store-assets
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+          image: "public.ecr.aws/aws-containers/retail-store-sample-assets:0.8.4"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health.html
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 3
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 128m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-volume
+      volumes:
+        - name: tmp-volume
+          emptyDir:
+            medium: Memory
+---
+# Source: retail-store-sample-assets-chart/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "retail-store-assets-test-connection"
+  labels:
+    helm.sh/chart: assets-0.8.4
+    app.kubernetes.io/name: assets
+    app.kubernetes.io/instance: retail-store-assets
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['retail-store-assets:80/health.html']
+  restartPolicy: Never

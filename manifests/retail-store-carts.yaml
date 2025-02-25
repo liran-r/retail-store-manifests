@@ -1,0 +1,211 @@
+---
+# Source: retail-store-sample-cart-chart/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: retail-store-carts
+  labels:
+    helm.sh/chart: carts-0.8.4
+    app.kubernetes.io/name: carts
+    app.kubernetes.io/instance: retail-store-carts
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: retail-store-sample-cart-chart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retail-store-carts
+data:
+  SPRING_PROFILES_ACTIVE: dynamodb
+  CARTS_DYNAMODB_TABLENAME: Items
+  CARTS_DYNAMODB_CREATETABLE: "false"
+  CARTS_DYNAMODB_CREATETABLE: "true"
+  AWS_ACCESS_KEY_ID: key
+  AWS_SECRET_ACCESS_KEY: secret
+  CARTS_DYNAMODB_ENDPOINT: http://retail-store-carts-dynamodb:8000
+---
+# Source: retail-store-sample-cart-chart/templates/dynamodb-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: retail-store-carts-dynamodb
+  labels:
+    helm.sh/chart: carts-0.8.4
+    app.kubernetes.io/name: retail-store-carts
+    app.kubernetes.io/instance: retail-store-carts
+    app.kubernetes.io/component: dynamodb
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: dynamodb
+      protocol: TCP
+      name: dynamodb
+  selector:
+    app.kubernetes.io/name: retail-store-carts
+    app.kubernetes.io/instance: retail-store-carts
+    app.kubernetes.io/component: dynamodb
+---
+# Source: retail-store-sample-cart-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: retail-store-carts
+  labels:
+    helm.sh/chart: carts-0.8.4
+    app.kubernetes.io/name: carts
+    app.kubernetes.io/instance: retail-store-carts
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: carts
+    app.kubernetes.io/instance: retail-store-carts
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+---
+# Source: retail-store-sample-cart-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retail-store-carts
+  labels:
+    helm.sh/chart: carts-0.8.4
+    app.kubernetes.io/name: carts
+    app.kubernetes.io/instance: retail-store-carts
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: carts
+      app.kubernetes.io/instance: retail-store-carts
+      app.kubernetes.io/component: service
+      app.kuberneres.io/owner: retail-store-sample
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/name: carts
+        app.kubernetes.io/instance: retail-store-carts
+        app.kubernetes.io/component: service
+        app.kuberneres.io/owner: retail-store-sample
+    spec:
+      serviceAccountName: retail-store-carts
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: carts
+          env:
+            - name: JAVA_OPTS
+              value: -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom
+          envFrom:
+            - configMapRef:
+                name: retail-store-carts
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: "public.ecr.aws/aws-containers/retail-store-sample-cart:0.8.4"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 45
+            periodSeconds: 3
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              cpu: 128m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-volume
+      volumes:
+        - name: tmp-volume
+          emptyDir:
+            medium: Memory
+---
+# Source: retail-store-sample-cart-chart/templates/dynamodb-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retail-store-carts-dynamodb
+  labels:
+    helm.sh/chart: carts-0.8.4
+    app.kubernetes.io/name: retail-store-carts
+    app.kubernetes.io/instance: retail-store-carts
+    app.kubernetes.io/component: dynamodb
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: retail-store-carts
+      app.kubernetes.io/instance: retail-store-carts
+      app.kubernetes.io/component: dynamodb
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: retail-store-carts
+        app.kubernetes.io/instance: retail-store-carts
+        app.kubernetes.io/component: dynamodb
+    spec:
+      containers:
+        - name: dynamodb
+          image: "amazon/dynamodb-local:1.20.0"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: dynamodb
+              containerPort: 8000
+              protocol: TCP
+---
+# Source: retail-store-sample-cart-chart/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "retail-store-carts-test-connection"
+  labels:
+    helm.sh/chart: carts-0.8.4
+    app.kubernetes.io/name: carts
+    app.kubernetes.io/instance: retail-store-carts
+    app.kubernetes.io/component: service
+    app.kuberneres.io/owner: retail-store-sample
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['retail-store-carts:80/actuator/health/liveness']
+  restartPolicy: Never
