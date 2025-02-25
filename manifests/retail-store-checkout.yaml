@@ -81,7 +81,7 @@ metadata:
     app.kuberneres.io/owner: retail-store-sample
     app.kubernetes.io/managed-by: Helm
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     rollingUpdate:
       maxUnavailable: 1
@@ -157,7 +157,7 @@ metadata:
     app.kubernetes.io/component: redis
     app.kubernetes.io/managed-by: Helm
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: retail-store-checkout

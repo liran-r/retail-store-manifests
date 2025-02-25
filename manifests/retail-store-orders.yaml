@@ -126,7 +126,7 @@ metadata:
     app.kuberneres.io/owner: retail-store-sample
     app.kubernetes.io/managed-by: Helm
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     rollingUpdate:
       maxUnavailable: 1
@@ -217,7 +217,7 @@ metadata:
     app.kubernetes.io/component: postgresql
     app.kubernetes.io/managed-by: Helm
 spec:
-  replicas: 1
+  replicas: 0
   serviceName: retail-store-orders-postgresql
   selector:
     matchLabels:
@@ -273,7 +273,7 @@ metadata:
     app.kubernetes.io/component: rabbitmq
     app.kubernetes.io/managed-by: Helm
 spec:
-  replicas: 1
+  replicas: 0
   serviceName: retail-store-orders-rabbitmq
   selector:
     matchLabels:
